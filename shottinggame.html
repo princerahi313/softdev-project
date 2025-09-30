@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Shooter - Typing Game</title>
+    <style>
+        body {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .hud {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px 25px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .hud-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .hud-label {
+            font-size: 12px;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .hud-value {
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .lives {
+            display: flex;
+            gap: 5px;
+        }
+
+        .heart {
+            font-size: 24px;
+            color: #ff4757;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .heart.lost {
+            opacity: 0.3;
+        }
+
+        .falling-word {
+            position: absolute;
+            font-size: 20px;
+            font-weight: bold;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #2c3e50;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.1s ease;
+            cursor: default;
+            user-select: none;
+            border: 2px solid transparent;
+        }
+
+        .falling-word.typing {
+            border-color: #3498db;
+            background: rgba(52, 152, 219, 0.9);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .falling-word.correct {
+            background: rgba(46, 204, 113, 0.9);
+            color: white;
+            transform: scale(1.2);
+        }
+
+        .input-area {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+        }
+
+        .input-field {
+            font-size: 24px;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 30px;
+            background: rgba(255, 255, 255, 0.95);
+            color: #2c3e50;
+            text-align: center;
+            min-width: 300px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            outline: none;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        .input-field:focus {
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.5);
+            transform: scale(1.05);
+        }
+
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        .game-over-content {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            max-width: 400px;
+        }
+
+        .game-over h2 {
+            font-size: 36px;
+            margin: 0 0 20px 0;
+            color: #ff4757;
+        }
+
+        .final-score {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+
+        .restart-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        .restart-btn:hover {
+            background: #2980b9;
+            transform: scale(1.05);
+        }
+
+        .level-up {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(46, 204, 113, 0.95);
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 150;
+            display: none;
+            animation: levelUpPulse 2s ease-in-out;
+        }
+
+        @keyframes levelUpPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #f39c12;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particle 1s ease-out forwards;
+        }
+
+        @keyframes particle {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(0) translateY(-100px);
+            }
+        }
+
+        .instructions {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 200;
+            max-width: 500px;
+        }
+
+        .instructions h3 {
+            color: #3498db;
+            margin-bottom: 20px;
+        }
+
+        .instructions p {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        .start-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        .start-btn:hover {
+            background: #219a52;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="instructions" id="instructions">
+            <h3>🎯 Word Shooter</h3>
+            <p>Type the falling words to shoot them down!</p>
+            <p>• Words fall from the top - type them before they reach the bottom</p>
+            <p>• You have 3 lives - lose one when a word escapes</p>
+            <p>• Speed and difficulty increase as you level up</p>
+            <p>• Aim for high scores and word combos!</p>
+            <button class="start-btn" onclick="startGame()">Start Game</button>
+        </div>
+
+        <div class="hud">
+            <div class="hud-item">
+                <div class="hud-label">Score</div>
+                <div class="hud-value" id="score">0</div>
+            </div>
+            <div class="hud-item">
+                <div class="hud-label">Level</div>
+                <div class="hud-value" id="level">1</div>
+            </div>
+            <div class="hud-item">
+                <div class="hud-label">Lives</div>
+                <div class="lives" id="lives">
+                    <span class="heart">❤️</span>
+                    <span class="heart">❤️</span>
+                    <span class="heart">❤️</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <input type="text" class="input-field" id="inputField" placeholder="Type words here..." autocomplete="off">
+        </div>
+
+        <div class="level-up" id="levelUp">
+            Level Up! 🎉
+        </div>
+
+        <div class="game-over" id="gameOver">
+            <div class="game-over-content">
+                <h2>Game Over!</h2>
+                <div class="final-score">Final Score: <span id="finalScore">0</span></div>
+                <div>Level Reached: <span id="finalLevel">1</span></div>
+                <button class="restart-btn" onclick="restartGame()">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class WordShooterGame {
+            constructor() {
+                this.score = 0;
+                this.level = 1;
+                this.lives = 3;
+                this.words = [];
+                this.currentInput = '';
+                this.gameRunning = false;
+                this.wordSpeed = 1;
+                this.spawnRate = 2000;
+                this.wordsPerLevel = 10;
+                this.wordsCleared = 0;
+                
+                this.wordList = [
+                    // Level 1 - Easy words
+                    ['cat', 'dog', 'run', 'jump', 'fast', 'slow', 'big', 'small', 'red', 'blue'],
+                    // Level 2 - Medium words
+                    ['house', 'water', 'light', 'music', 'happy', 'green', 'quick', 'strong', 'bright', 'smooth'],
+                    // Level 3+ - Harder words
+                    ['computer', 'keyboard', 'challenge', 'adventure', 'beautiful', 'dangerous', 'fantastic', 'incredible', 'mysterious', 'wonderful']
+                ];
+                
+                this.inputField = document.getElementById('inputField');
+                this.setupEventListeners();
+            }
+            
+            setupEventListeners() {
+                this.inputField.addEventListener('input', (e) => {
+                    this.currentInput = e.target.value.toLowerCase().trim();
+                    this.checkWordMatch();
+                });
+                
+                this.inputField.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        this.inputField.value = '';
+                        this.currentInput = '';
+                        this.updateWordHighlights();
+                    }
+                });
+            }
+            
+            getRandomWord() {
+                let wordSet;
+                if (this.level <= 2) {
+                    wordSet = this.wordList[0];
+                } else if (this.level <= 5) {
+                    wordSet = this.wordList[1];
+                } else {
+                    wordSet = this.wordList[2];
+                }
+                return wordSet[Math.floor(Math.random() * wordSet.length)];
+            }
+            
+            spawnWord() {
+                if (!this.gameRunning) return;
+                
+                const word = this.getRandomWord();
+                const wordElement = document.createElement('div');
+                wordElement.className = 'falling-word';
+                wordElement.textContent = word;
+                wordElement.style.left = Math.random() * (window.innerWidth - 200) + 'px';
+                wordElement.style.top = '100px';
+                
+                const wordObj = {
+                    element: wordElement,
+                    text: word,
+                    x: parseFloat(wordElement.style.left),
+                    y: 100,
+                    matched: false
+                };
+                
+                this.words.push(wordObj);
+                document.querySelector('.game-container').appendChild(wordElement);
+                
+                // Schedule next word spawn
+                setTimeout(() => this.spawnWord(), this.spawnRate);
+            }
+            
+            updateWords() {
+                if (!this.gameRunning) return;
+                
+                this.words.forEach((word, index) => {
+                    if (!word.matched) {
+                        word.y += this.wordSpeed;
+                        word.element.style.top = word.y + 'px';
+                        
+                        // Check if word reached bottom
+                        if (word.y > window.innerHeight - 150) {
+                            this.loseLife();
+                            this.removeWord(index);
+                        }
+                    }
+                });
+                
+                if (this.gameRunning) {
+                    requestAnimationFrame(() => this.updateWords());
+                }
+            }
+            
+            checkWordMatch() {
+                if (!this.currentInput) {
+                    this.updateWordHighlights();
+                    return;
+                }
+                
+                // Check for exact matches first
+                const exactMatch = this.words.find(word => 
+                    !word.matched && word.text === this.currentInput
+                );
+                
+                if (exactMatch) {
+                    this.shootWord(exactMatch);
+                    this.inputField.value = '';
+                    this.currentInput = '';
+                    return;
+                }
+                
+                this.updateWordHighlights();
+            }
+            
+            updateWordHighlights() {
+                this.words.forEach(word => {
+                    if (word.matched) return;
+                    
+                    if (this.currentInput && word.text.startsWith(this.currentInput)) {
+                        word.element.className = 'falling-word typing';
+                    } else {
+                        word.element.className = 'falling-word';
+                    }
+                });
+            }
+            
+            shootWord(word) {
+                word.matched = true;
+                word.element.className = 'falling-word correct';
+                
+                // Create particle effect
+                this.createParticles(word.element);
+                
+                // Calculate score based on word length and level
+                const baseScore = word.text.length * 10;
+                const levelBonus = this.level * 5;
+                const totalScore = baseScore + levelBonus;
+                
+                this.score += totalScore;
+                this.wordsCleared++;
+                
+                // Remove word after animation
+                setTimeout(() => {
+                    const index = this.words.indexOf(word);
+                    if (index > -1) {
+                        this.removeWord(index);
+                    }
+                }, 200);
+                
+                // Check for level up
+                if (this.wordsCleared >= this.wordsPerLevel * this.level) {
+                    this.levelUp();
+                }
+                
+                this.updateHUD();
+            }
+            
+            createParticles(element) {
+                const rect = element.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                
+                for (let i = 0; i < 8; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    particle.style.left = centerX + 'px';
+                    particle.style.top = centerY + 'px';
+                    particle.style.transform = `rotate(${i * 45}deg)`;
+                    
+                    document.body.appendChild(particle);
+                    
+                    setTimeout(() => {
+                        if (particle.parentNode) {
+                            particle.parentNode.removeChild(particle);
+                        }
+                    }, 1000);
+                }
+            }
+            
+            removeWord(index) {
+                const word = this.words[index];
+                if (word && word.element.parentNode) {
+                    word.element.parentNode.removeChild(word.element);
+                }
+                this.words.splice(index, 1);
+            }
+            
+            loseLife() {
+                this.lives--;
+                this.updateHUD();
+                
+                if (this.lives <= 0) {
+                    this.gameOver();
+                }
+            }
+            
+            levelUp() {
+                this.level++;
+                this.wordSpeed += 0.5;
+                this.spawnRate = Math.max(1000, this.spawnRate - 200);
+                
+                // Show level up notification
+                const levelUpElement = document.getElementById('levelUp');
+                levelUpElement.style.display = 'block';
+                levelUpElement.textContent = `Level ${this.level}! 🎉`;
+                
+                setTimeout(() => {
+                    levelUpElement.style.display = 'none';
+                }, 2000);
+                
+                this.updateHUD();
+            }
+            
+            updateHUD() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('level').textContent = this.level;
+                
+                const heartsContainer = document.getElementById('lives');
+                const hearts = heartsContainer.querySelectorAll('.heart');
+                hearts.forEach((heart, index) => {
+                    if (index < this.lives) {
+                        heart.classList.remove('lost');
+                    } else {
+                        heart.classList.add('lost');
+                    }
+                });
+            }
+            
+            gameOver() {
+                this.gameRunning = false;
+                
+                // Clear all words
+                this.words.forEach(word => {
+                    if (word.element.parentNode) {
+                        word.element.parentNode.removeChild(word.element);
+                    }
+                });
+                this.words = [];
+                
+                // Show game over screen
+                document.getElementById('finalScore').textContent = this.score;
+                document.getElementById('finalLevel').textContent = this.level;
+                document.getElementById('gameOver').style.display = 'flex';
+            }
+            
+            start() {
+                this.gameRunning = true;
+                this.inputField.focus();
+                this.spawnWord();
+                this.updateWords();
+            }
+            
+            restart() {
+                this.score = 0;
+                this.level = 1;
+                this.lives = 3;
+                this.words = [];
+                this.currentInput = '';
+                this.wordSpeed = 1;
+                this.spawnRate = 2000;
+                this.wordsCleared = 0;
+                
+                // Clear any remaining words
+                document.querySelectorAll('.falling-word').forEach(word => {
+                    if (word.parentNode) {
+                        word.parentNode.removeChild(word);
+                    }
+                });
+                
+                this.inputField.value = '';
+                document.getElementById('gameOver').style.display = 'none';
+                
+                this.updateHUD();
+                this.start();
+            }
+        }
+        
+        let game = new WordShooterGame();
+        
+        function startGame() {
+            document.getElementById('instructions').style.display = 'none';
+            game.start();
+        }
+        
+        function restartGame() {
+            game.restart();
+        }
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'985ca86092dcdafa',t:'MTc1ODk5MzQ4MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
